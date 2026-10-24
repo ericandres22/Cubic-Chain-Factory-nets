@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Polycube chains — three unfoldings</title>
+<style>
+  :root{--bg:#0f1216;--panel:#161b22;--panel2:#1c232d;--edge:#2a323d;--ink:#e9edf2;
+        --muted:#8b97a6;--faint:#5a6673;--accent:#e2b23a;
+        --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;
+       display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:9px;padding:8px 14px;border-bottom:1px solid var(--edge);
+         background:var(--panel);flex-wrap:wrap}
+  header h1{margin:0;font-size:12.5px;font-weight:650;letter-spacing:.13em;text-transform:uppercase}
+  .sub{color:var(--muted);font-size:12px;font-family:ui-monospace,monospace}
+  .spacer{flex:1}
+  #paper{padding:7px 14px 6px;background:#12171e;border-bottom:1px solid var(--edge);
+         font-size:12.5px;color:var(--ink);line-height:1.45}
+  #paper cite{font-style:italic;font-weight:600;color:var(--accent)}
+  #paper .affil{color:var(--muted);font-size:11.5px}
+  button{font-family:var(--sans);font-size:13px;color:var(--ink);background:var(--panel2);
+         border:1px solid var(--edge);border-radius:7px;padding:6px 11px;cursor:pointer;
+         transition:.12s;white-space:nowrap}
+  button:hover:not(:disabled){border-color:var(--faint)}
+  button.go{background:#3f9a5e1e;border-color:#3f9a5e66;color:#7fe0a6}
+  button.cut{background:#d21f3c1e;border-color:#d21f3c66;color:#ff9aa9}
+  button.toggle.on{background:#e2b23a1c;border-color:#e2b23a66;color:var(--accent)}
+  button.mode{font-size:12.5px}
+  button.mode.on{background:#5ec8d81c;border-color:#5ec8d866;color:#8fdcea}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  main{flex:1;display:flex;flex-direction:column;min-height:0}
+  #top{flex:1 1 48%;position:relative;min-height:0;background:#fff}
+  #c3d{width:100%;height:100%;display:block;cursor:crosshair}
+  .hud{position:absolute;font-family:ui-monospace,monospace;font-size:11.5px;color:#5a6673;
+       pointer-events:none}
+  #hud-tl{left:12px;top:10px;line-height:1.5}
+  #hint{left:12px;bottom:10px}
+  #modebar{padding:6px 14px;background:#12171e;border-bottom:1px solid var(--edge);
+           color:var(--muted);font-size:12.5px}
+  #bottom{flex:1 1 52%;min-height:0;border-top:1px solid var(--edge);background:#fff;
+          display:flex;flex-direction:column}
+  #bottom .bar{display:flex;align-items:center;gap:10px;padding:6px 14px;
+               border-bottom:1px solid #dfe3e8;background:#f6f7f9;color:#3d4753;font-size:12px;
+               white-space:nowrap;overflow:hidden}
+  #bottom .bar button{color:#3d4753;background:#fff;border:1px solid #d5dae0;padding:4px 9px;
+                      font-size:12px}
+  #stripwrap{flex:1;overflow:auto;min-height:0} #strip{display:block}
+  .sw{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;
+      margin-right:4px;border:1px solid #0002}
+  .err{color:#c0392b}
+  input[type=range]{accent-color:#e2b23a}
+</style></head><body>
+<div id="paper">Companion to the paper <cite>Introducing Factory nets</cite> &middot;
+  Eric Andres, Ga&euml;lle Largeteau-Skapin
+  <span class="affil">&middot; XLIM UMR CNRS 7252, Asali team, University of Poitiers</span></div>
+<header>
+  <h1>Polycube chains</h1>
+  <span class="sub" id="seqline"></span>
+  <span class="spacer"></span>
+  <button id="nums" class="toggle">face #</button>
+  <button id="undo">&#9666; Undo</button><button id="reset">Reset</button>
+  <button id="rand">Random</button>
+  <span id="unfwrap" style="display:none;align-items:center;gap:7px;margin-left:6px">
+    <label for="unf" style="font-size:12px;color:#8b97a6">unfold</label>
+    <input type="range" id="unf" min="0" max="1" step="0.004" value="0" style="width:150px">
+    <span id="unfval" style="font-size:12px;color:#8b97a6;font-family:ui-monospace,monospace;
+      min-width:2.4em;display:inline-block">0.00</span></span>
+  <button id="build" class="go">&#9312; Build</button>
+  <button id="remove" class="cut" disabled>&#9313; Remove walls</button>
+</header>
+<div id="modebar">
+  <button class="mode on" id="m-solid">solid &middot; edge-perfect</button>
+  <button class="mode" id="m-direct">classical, direct &middot; edge-perfect</button>
+  <button class="mode" id="m-faceperfect">classical, via removal &middot; face-perfect</button>
+  <span id="modedesc" style="margin-left:10px"></span>
+</div>
+<main>
+  <div id="top"><canvas id="c3d"></canvas>
+    <div class="hud" id="hud-tl"></div>
+    <div class="hud" id="hint">drag to orbit &middot; scroll to zoom &middot; click a highlighted face of the last cube to extend</div>
+  </div>
+  <div id="bottom">
+    <div class="bar"><span id="legend"></span><span class="spacer"></span>
+      <span id="count" style="font-family:ui-monospace,monospace"></span>
+      <button id="dl">download SVG</button><button id="zout">-</button>
+      <button id="zfit">fit</button><button id="zin">+</button></div>
+    <div id="stripwrap"><svg id="strip" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  </div>
+</main>
+<script>const DATA={"V":[[-0.5,-0.5,-0.5],[-0.5,-0.5,0.5],[-0.5,0.5,-0.5],[-0.5,0.5,0.5],[0.5,-0.5,-0.5],[0.5,-0.5,0.5],[0.5,0.5,-0.5],[0.5,0.5,0.5]],"faceVerts":[[5,4,6,7],[6,2,3,7],[3,1,5,7],[4,0,2,6],[1,0,4,5],[2,0,1,3]],"faceCoord":[[1,0,0],[0,1,0],[0,0,1],[0,0,-1],[0,-1,0],[-1,0,0]],"floc":[[[0.7071067811865475,0.0],[0.0,0.7071067811865475],[-0.7071067811865475,0.0],[0.0,-0.7071067811865475]],[[0.7071067811865475,0.0],[0.0,0.7071067811865475],[-0.7071067811865475,0.0],[0.0,-0.7071067811865475]],[[0.7071067811865475,0.0],[0.0,0.7071067811865475],[-0.7071067811865475,0.0],[0.0,-0.7071067811865475]],[[0.7071067811865475,0.0],[0.0,0.7071067811865475],[-0.7071067811865475,0.0],[0.0,-0.7071067811865475]],[[0.7071067811865475,0.0],[0.0,0.7071067811865475],[-0.7071067811865475,0.0],[0.0,-0.7071067811865475]],[[0.7071067811865475,0.0],[0.0,0.7071067811865475],[-0.7071067811865475,0.0],[0.0,-0.7071067811865475]]],"edgeFaces":[[1,2],[1,3],[1,4],[1,5],[2,3],[2,4],[2,6],[3,5],[3,6],[4,5],[4,6],[5,6]],"edgeVerts":[[6,7],[5,7],[4,6],[4,5],[3,7],[2,6],[2,3],[1,5],[1,3],[0,4],[0,2],[0,1]],"faceEdgesCCW":[[4,3,1,2],[6,7,5,1],[9,8,2,5],[10,11,6,3],[12,10,4,8],[11,12,9,7]],"anti":[6,5,4,3,2,1],"rots":[{"f":[1,2,3,4,5,6],"e":[1,2,3,4,5,6,7,8,9,10,11,12]},{"f":[1,5,4,3,2,6],"e":[4,3,2,1,10,8,12,6,11,5,9,7]},{"f":[6,2,4,3,5,1],"e":[7,11,9,12,6,5,1,10,3,8,2,4]},{"f":[6,5,3,4,2,1],"e":[12,9,11,7,8,10,4,5,2,6,3,1]},{"f":[1,4,2,5,3,6],"e":[3,1,4,2,6,10,11,5,7,8,12,9]},{"f":[1,3,5,2,4,6],"e":[2,4,1,3,8,5,9,10,12,6,7,11]},{"f":[6,3,2,5,4,1],"e":[9,7,12,11,5,8,2,6,1,10,4,3]},{"f":[6,4,5,2,3,1],"e":[11,12,7,9,10,6,3,8,4,5,1,2]},{"f":[2,1,4,3,6,5],"e":[1,6,5,7,3,2,4,11,10,9,8,12]},{"f":[5,1,3,4,6,2],"e":[4,8,10,12,2,3,1,9,5,11,6,7]},{"f":[2,6,3,4,1,5],"e":[7,5,6,1,9,11,12,2,8,3,10,4]},{"f":[5,6,4,3,1,2],"e":[12,10,8,4,11,9,7,3,6,2,5,1]},{"f":[3,1,2,5,6,4],"e":[2,5,8,9,1,4,3,7,6,12,10,11]},{"f":[4,1,5,2,6,3],"e":[3,10,6,11,4,1,2,12,8,7,5,9]},{"f":[4,6,2,5,1,3],"e":[11,6,10,3,7,12,9,1,5,4,8,2]},{"f":[3,6,5,2,1,4],"e":[9,8,5,2,12,7,11,4,10,1,6,3]},{"f":[2,3,1,6,4,5],"e":[5,1,7,6,2,9,8,3,4,11,12,10]},{"f":[5,4,1,6,3,2],"e":[10,4,12,8,3,11,6,2,1,9,7,5]},{"f":[2,4,6,1,3,5],"e":[6,7,1,5,11,3,10,9,12,2,4,8]},{"f":[5,3,6,1,4,2],"e":[8,12,4,10,9,2,5,11,7,3,1,6]},{"f":[4,2,1,6,5,3],"e":[6,3,11,10,1,7,5,4,2,12,9,8]},{"f":[3,5,1,6,2,4],"e":[8,2,9,5,4,12,10,1,3,7,11,6]},{"f":[3,2,6,1,5,4],"e":[5,9,2,8,7,1,6,12,11,4,3,10]},{"f":[4,5,6,1,2,3],"e":[10,11,3,6,12,4,8,7,9,1,2,5]}],"nextRail":{"1,4":[6,12],"1,3":[6,11],"1,1":[6,7],"1,2":[6,9],"2,6":[5,10],"2,7":[5,12],"2,5":[5,8],"2,1":[5,4],"3,9":[4,11],"3,8":[4,10],"3,2":[4,3],"3,5":[4,6],"4,10":[3,8],"4,11":[3,9],"4,6":[3,5],"4,3":[3,2],"5,12":[2,7],"5,10":[2,6],"5,4":[2,1],"5,8":[2,5],"6,11":[1,3],"6,12":[1,4],"6,9":[1,2],"6,7":[1,1]},"libSolid":[{"A":5,"a":4,"B":1,"b":3,"t":[1,7,8,9,10],"n":"v2"},{"A":5,"a":4,"B":2,"b":6,"t":[1,7,8,9,10],"n":"v10"},{"A":5,"a":4,"B":6,"b":11,"t":[1,7,8,9,10],"n":"v8"},{"A":5,"a":4,"B":3,"b":9,"t":[2,3,6,7,12],"n":"v4"},{"A":5,"a":4,"B":4,"b":10,"t":[3,5,7,8,11],"n":"v6"}],"libFP":[{"A":1,"a":1,"B":2,"b":1,"t":[4,7,9,11,12],"n":"Q1"},{"A":1,"a":1,"B":6,"b":7,"t":[4,6,8,10,12],"n":"Q1"},{"A":1,"a":1,"B":6,"b":9,"t":[4,6,8,10,11],"n":"Q2"},{"A":1,"a":1,"B":2,"b":5,"t":[4,6,8,11,12],"n":"Q3"},{"A":1,"a":1,"B":3,"b":2,"t":[4,7,9,10,11],"n":"Q3"},{"A":1,"a":1,"B":4,"b":3,"t":[4,5,8,9,11],"n":"Q4"},{"A":1,"a":1,"B":3,"b":8,"t":[4,5,7,10,11],"n":"Q5"},{"A":1,"a":1,"B":4,"b":10,"t":[4,5,6,9,12],"n":"Q6"}],"libDirIn":[{"A":5,"a":4,"W":2,"f":7,"t":[9,11,12],"keep":[3,4,5,6],"n":"T"},{"A":5,"a":4,"W":6,"f":12,"t":[6,8,10],"keep":[2,3,4,5],"n":"I"},{"A":5,"a":4,"W":6,"f":11,"t":[6,8,10],"keep":[2,3,4,5],"n":"I"},{"A":5,"a":4,"W":2,"f":6,"t":[8,11,12],"keep":[3,4,5,6],"n":"Z"},{"A":5,"a":4,"W":3,"f":9,"t":[7,10,11],"keep":[2,4,5,6],"n":"Z"},{"A":5,"a":4,"W":4,"f":11,"t":[5,8,9],"keep":[2,3,5,6],"n":"T"},{"A":5,"a":4,"W":3,"f":5,"t":[7,10,11],"keep":[2,4,5,6],"n":"Z"},{"A":5,"a":4,"W":4,"f":6,"t":[5,9,12],"keep":[2,3,5,6],"n":"Z"}],"libDirEnd":[{"A":5,"a":4,"t":[6,8,10,11],"keep":[2,3,4,5,6],"n":"Y"}],"libFPend":[{"A":1,"a":1,"B":6,"b":9,"t":[4,6,8,10,11],"n":"Q2"}]};</script>
+<script>
+/* ================================================================= geometry */
+const NF=6, V=DATA.V, FV=DATA.faceVerts, FC=DATA.faceCoord, FLOC=DATA.floc;
+const EF=DATA.edgeFaces, EV=DATA.edgeVerts, FE=DATA.faceEdgesCCW;
+const ANTI=f=>DATA.anti[f-1];
+const NR=(W,b)=>DATA.nextRail[W+','+b];
+function oppEdge(f,j){ const L=FE[f-1]; return L[(L.indexOf(j)+2)%4]; }
+function locOf(f,v){ return FLOC[f-1][FV[f-1].indexOf(v)]; }
+function otherFace(j,f){ const [x,y]=EF[j-1]; return x===f?y:x; }
+const RAILS=[]; const RIDX={};
+for(let f=1;f<=NF;f++) for(const j of FE[f-1]){ RIDX[f+','+j]=RAILS.length; RAILS.push([f,j]); }
+
+/* ================================================================= libraries */
+function transport(list, keyfn){
+  const out=[];
+  for(const v of list) for(const R of DATA.rots){
+    const o={n:v.n};
+    o.A=R.f[v.A-1]; o.a=R.e[v.a-1];
+    if(v.B!==undefined){ o.B=R.f[v.B-1]; o.b=R.e[v.b-1]; }
+    if(v.W!==undefined){ o.W=R.f[v.W-1]; o.f=R.e[v.f-1]; }
+    o.t=v.t.map(j=>R.e[j-1]).sort((x,y)=>x-y);
+    if(v.keep) o.keep=v.keep.map(f=>R.f[f-1]).sort((x,y)=>x-y);
+    out.push(o);
+  }
+  return out;
+}
+const SOLID=transport(DATA.libSolid), FP=transport(DATA.libFP), FPE=transport(DATA.libFPend);
+const DIRI=transport(DATA.libDirIn),  DIRE=transport(DATA.libDirEnd);
+function index(list, kf){ const m=new Map();
+  for(const v of list){ const k=kf(v); if(!m.has(k)) m.set(k,[]); m.get(k).push(v); }
+  return m; }
+const IS=index(SOLID,v=>v.A+','+v.a+','+v.B);
+const IF=index(FP,   v=>v.A+','+v.a+','+v.B);
+const ID=index(DIRI, v=>v.A+','+v.a+','+v.W);
+const IE=index(DIRE, v=>v.A+','+v.a);
+const XS=index(SOLID,v=>v.B+','+v.b);          // by exit rail, for the first voxel
+const XF=index(FPE,  v=>v.B+','+v.b);          // ends: the end version only
+const ES=index(SOLID,v=>v.A+','+v.a);
+const EFI=index(FPE, v=>v.A+','+v.a);
+
+/* Bad sets.  Solid: none (any wall != entry face works).  Face-perfect: the face the entry
+   face is hinged to.  Direct: the rail's own carrying face -- if the exit wall were that
+   face, both faces at the entry edge would be gone and the rail would not exist.          */
+const badFP = s => otherFace(oppEdge(s[0],s[1]), s[0]);
+const badDir = s => s[0];
+const inWall = s => otherFace(s[1], s[0]);      // direct: the removed entry wall
+
+/* next entry rail after leaving through wall W on edge b */
+function nextSolid(W,b){ const [Wc,fc]=NR(W,b); return [Wc,fc]; }        // wall bridge
+function nextDir(W,f){ const [Wc,fc]=NR(W,f); return [otherFace(fc,Wc),fc]; }
+
+/* ================================================================= unfolding */
+function unfoldSub(keep,tree,root,rail){
+  const ks=new Set(keep), adj={};
+  for(const f of keep) adj[f]=[];
+  for(const j of tree){ const [x,y]=EF[j-1]; if(!ks.has(x)||!ks.has(y)) continue;
+    adj[x].push([y,j]); adj[y].push([x,j]); }
+  const L=FE[root-1], k=L.indexOf(rail), vs=FV[root-1];
+  const p=vs[k], q=vs[(k+1)%4];
+  const place=(f,kn)=>{
+    const kk=Object.keys(kn).map(Number), P=kk[0], Q=kk[1];
+    const la=locOf(f,P), lb=locOf(f,Q);
+    const d1=[lb[0]-la[0],lb[1]-la[1]], d2=[kn[Q][0]-kn[P][0],kn[Q][1]-kn[P][1]];
+    const n1=Math.hypot(d1[0],d1[1]), n2=Math.hypot(d2[0],d2[1]);
+    const c=(d1[0]*d2[0]+d1[1]*d2[1])/(n1*n2), s=(d1[0]*d2[1]-d1[1]*d2[0])/(n1*n2);
+    const tx=kn[P][0]-(c*la[0]-s*la[1]), ty=kn[P][1]-(s*la[0]+c*la[1]);
+    const o={}; for(const v of FV[f-1]){ const l=locOf(f,v);
+      o[v]=[c*l[0]-s*l[1]+tx, s*l[0]+c*l[1]+ty]; }
+    return o; };
+  const kn0={}; kn0[p]=[0,.5]; kn0[q]=[0,-.5];
+  const co={}; co[root]=place(root,kn0);
+  const st=[root], seen=new Set([root]);
+  while(st.length){ const f=st.pop();
+    for(const [g,j] of adj[f]){ if(seen.has(g)) continue; seen.add(g);
+      const [a,b]=EV[j-1]; const kk={}; kk[a]=co[f][a]; kk[b]=co[f][b];
+      co[g]=place(g,kk); st.push(g); } }
+  if(Object.keys(co).length!==keep.length) return null;
+  const out={}; for(const f of keep) out[f]=FV[f-1].map(v=>co[f][v]);
+  return out;
+}
+
+/* ================================================================= strip build */
+let mode="solid";
+function buildStrip(walls){
+  const n=walls.length+1, P=[];
+  if(!walls.length) return {err:"add at least one more cube"};
+  let rail=null;
+  if(mode==="direct"){
+    // first cube: 5 faces, its removed wall is walls[0]; the rail is its EXIT -> half-turn
+    const W=walls[0], W2=walls.length>1?walls[1]:null;
+    let pick=null;
+    for(const bb of FE[W-1]){
+      const e=oppEdge(W,bb), Ax=otherFace(e,W);   // same order as the face-perfect route
+      const cand=(IE.get(Ax+','+e)||[]);
+      if(!cand.length) continue;
+      const s2=nextDir(W,e);
+      if(W2===null || s2[0]!==W2){ pick={e,Ax,v:cand[0]}; break; }
+    }
+    if(!pick) return {err:"no opening piece"};
+    P.push({keep:pick.v.keep, tree:pick.v.t, root:pick.Ax, rail:pick.e, turn:true,
+            out:[W,pick.e], n:pick.v.n});
+    rail=nextDir(W,pick.e);
+    for(let i=1;i<walls.length;i++){
+      const W=walls[i], W2=(i+1<walls.length)?walls[i+1]:null;
+      const cs=ID.get(rail[0]+','+rail[1]+','+W)||[];
+      let pk=null;
+      for(const v of cs){ const s2=nextDir(W,v.f); if(W2===null||s2[0]!==W2){ pk=v; break; } }
+      if(!pk && cs.length) pk=cs[0];
+      if(!pk) return {err:'stuck at cube '+(i+1)+' (wall F'+W+')'};
+      P.push({keep:pk.keep, tree:pk.t, root:rail[0], rail:rail[1], turn:false,
+              out:[W,pk.f], n:pk.n});
+      rail=nextDir(W,pk.f);
+    }
+    const last=(IE.get(rail[0]+','+rail[1])||[])[0];
+    if(!last) return {err:"no closing piece"};
+    P.push({keep:last.keep, tree:last.t, root:rail[0], rail:rail[1], turn:false,
+            out:null, n:last.n});
+    return {pieces:P, drop:new Set(), shift:new Array(n).fill(0)};
+  }
+  // solid and face-perfect: 6-face nets, wall bridges
+  const IDX = mode==="solid"?IS:IF, XM = mode==="solid"?XS:XF, EM = mode==="solid"?ES:EFI;
+  const bad = mode==="solid"? (()=>-1) : badFP;
+  for(let i=0;i<walls.length;i++){
+    const W=walls[i], W2=(i+1<walls.length)?walls[i+1]:null;
+    if(i===0){
+      let pick=null;
+      for(const b of FE[W-1]){
+        const cand=XM.get(W+','+b); if(!cand||!cand.length) continue;
+        const s2=nextSolid(W,b);
+        if(W2===null || bad(s2)!==W2){ pick={b,v:cand[0]}; break; }
+      }
+      if(!pick) return {err:"no opening net"};
+      P.push({keep:[1,2,3,4,5,6], tree:pick.v.t, root:pick.v.A, rail:pick.v.a, turn:false,
+              out:[W,pick.b], n:pick.v.n});
+      rail=nextSolid(W,pick.b);
+    } else {
+      const cs=IDX.get(rail[0]+','+rail[1]+','+W)||[];
+      let pk=null;
+      for(const v of cs){ const s2=nextSolid(W,v.b); if(W2===null||bad(s2)!==W2){ pk=v; break; } }
+      if(!pk && cs.length) pk=cs[0];
+      if(!pk) return {err:'stuck at cube '+(i+1)+' (wall F'+W+')'};
+      P.push({keep:[1,2,3,4,5,6], tree:pk.t, root:rail[0], rail:rail[1], turn:false,
+              out:[W,pk.b], n:pk.n});
+      rail=nextSolid(W,pk.b);
+    }
+  }
+  const last=(EM.get(rail[0]+','+rail[1])||[])[0];
+  if(!last) return {err:"no closing net"};
+  P.push({keep:[1,2,3,4,5,6], tree:last.t, root:rail[0], rail:rail[1], turn:false,
+          out:null, n:last.n});
+  const drop=new Set(), shift=[0];
+  if(mode==="faceperfect"){
+    for(let i=0;i<n-1;i++){ drop.add(i+','+P[i].out[0]); drop.add((i+1)+','+ANTI(P[i].out[0])); }
+    for(let i=0;i<n-1;i++) shift.push(shift[i]+2);
+  } else { for(let i=0;i<n-1;i++) shift.push(0); }
+  return {pieces:P, drop, shift};
+}
+
+/* ================================================================= assembly */
+function assemble(centres,B){
+  const n=centres.length, lay=[];
+  for(const p of B.pieces){
+    let L=unfoldSub(p.keep,p.tree,p.root,p.rail);
+    if(L===null) return {err:"piece failed to unfold"};
+    if(p.turn){ const M={}; for(const f in L) M[f]=L[f].map(q=>[-q[0],-q[1]]); L=M; }
+    lay.push(L);
+  }
+  const f6=x=>{const y=Math.round(x*1e6)/1e6; return (y===0?0:y).toFixed(6);};
+  const key=(i,v)=>[centres[i][0]+V[v][0],centres[i][1]+V[v][1],centres[i][2]+V[v][2]]
+                     .map(f6).join('|');
+  const off=[[0,0]];
+  for(let i=0;i<n-1;i++){
+    const [Wo,fo]=B.pieces[i].out;
+    const Bf = (mode==="direct")? otherFace(fo,Wo) : Wo;
+    const [v0,v1]=EV[fo-1];
+    const nx=B.pieces[i+1], A2=nx.root, e2=nx.rail;
+    const m={};
+    for(const u of [v0,v1]) for(const u2 of EV[e2-1]) if(key(i,u)===key(i+1,u2)) m[u]=u2;
+    if(Object.keys(m).length!==2) return {err:'junction '+i+': rails do not match'};
+    const g=(L,f,v)=>L[f][FV[f-1].indexOf(v)];
+    const P0=[g(lay[i],Bf,v0)[0]+off[i][0], g(lay[i],Bf,v0)[1]+off[i][1]];
+    const P1=[g(lay[i],Bf,v1)[0]+off[i][0], g(lay[i],Bf,v1)[1]+off[i][1]];
+    const Q0=g(lay[i+1],A2,m[v0]), Q1=g(lay[i+1],A2,m[v1]);
+    if(Math.hypot(P0[0]-Q0[0]-(P1[0]-Q1[0]), P0[1]-Q0[1]-(P1[1]-Q1[1]))>1e-6)
+      return {err:'junction '+i+': not a translation'};
+    off.push([P0[0]-Q0[0], P0[1]-Q0[1]]);
+  }
+  const faces=[];
+  for(let i=0;i<n;i++) for(const f of B.pieces[i].keep)
+    faces.push({i,f,pts:lay[i][f].map(p=>[p[0]+off[i][0], p[1]+off[i][1]])});
+  return {faces, off};
+}
+
+/* ================================================================= fold engine */
+const dt3=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cx3=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const sb3=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const nrm3=a=>{const n=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/n,a[1]/n,a[2]/n];};
+function rod(d,ang){ const c=Math.cos(ang),s=Math.sin(ang),t=1-c,[x,y,z]=d;
+  return [[t*x*x+c,t*x*y-s*z,t*x*z+s*y],[t*x*y+s*z,t*y*y+c,t*y*z-s*x],
+          [t*x*z-s*y,t*y*z+s*x,t*z*z+c]]; }
+const mv=(R,v)=>[R[0][0]*v[0]+R[0][1]*v[1]+R[0][2]*v[2],
+                 R[1][0]*v[0]+R[1][1]*v[1]+R[1][2]*v[2],
+                 R[2][0]*v[0]+R[2][1]*v[1]+R[2][2]*v[2]];
+const mm=(A,B)=>[0,1,2].map(i=>[0,1,2].map(j=>A[i][0]*B[0][j]+A[i][1]*B[1][j]+A[i][2]*B[2][j]));
+const ID3=[[1,0,0],[0,1,0],[0,0,1]];
+function foldAngle(iP,P,iC,C,eP){
+  const cP=centres[iP], cC=centres[iC];
+  const p3=v=>[cP[0]+V[v][0],cP[1]+V[v][1],cP[2]+V[v][2]];
+  const c3=v=>[cC[0]+V[v][0],cC[1]+V[v][1],cC[2]+V[v][2]];
+  const [v0,v1]=EV[eP-1], A3=p3(v0), B3=p3(v1), u=nrm3(sb3(B3,A3));
+  const cen=pts=>{const c=[0,0,0];for(const p of pts){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];}
+                  return c.map(x=>x/pts.length);};
+  const perp=c=>{const r=sb3(c,A3),k=dt3(r,u);return[r[0]-k*u[0],r[1]-k*u[1],r[2]-k*u[2]];};
+  const mP=nrm3(perp(cen(FV[P-1].map(p3)))), mC=nrm3(perp(cen(FV[C-1].map(c3))));
+  const w=[-mP[0],-mP[1],-mP[2]];
+  return Math.atan2(dt3(cx3(w,mC),u), dt3(w,mC));
+}
+let FOLD=null, sFold=1;
+function buildFoldTree(){
+  if(!built||built.err) return null;
+  const B=built.B, asm=built.asm, n=centres.length;
+  const alive=new Set();
+  for(const fo of asm.faces){ if(phase===1 && B.drop.has(fo.i+','+fo.f)) continue;
+    alive.add(fo.i+','+fo.f); }
+  const nodes=[...alive], idx={}; nodes.forEach((k,i)=>idx[k]=i);
+  const poly=nodes.map(k=>{ const [i,f]=k.split(',').map(Number);
+    const fo=asm.faces.find(x=>x.i===i&&x.f===f);
+    const dx = phase===1 ? -B.shift[i] : 0;
+    return {i,f,pts:fo.pts.map(p=>[p[0]+dx,p[1],0])}; });
+  const adj=nodes.map(()=>[]);
+  const add=(ka,kb,iF,F,iG,Gg,eF,eG)=>{
+    if(!(ka in idx)||!(kb in idx)) return;
+    adj[idx[ka]].push({to:idx[kb], beta:foldAngle(iF,F,iG,Gg,eF), vp:eF});
+    adj[idx[kb]].push({to:idx[ka], beta:foldAngle(iG,Gg,iF,F,eG), vp:eG});
+  };
+  for(let i=0;i<n;i++) for(const j of B.pieces[i].tree){
+    const [fa,fb]=EF[j-1]; add(i+','+fa, i+','+fb, i,fa, i,fb, j, j); }
+  for(let i=0;i<n-1;i++){
+    const [W,b]=B.pieces[i].out;
+    if(mode==="direct"){
+      const F=otherFace(b,W), [Wc,fc]=NR(W,b), Gg=otherFace(fc,Wc);
+      add(i+','+F, (i+1)+','+Gg, i,F, i+1,Gg, b, fc);
+    } else if(phase===0){
+      const [Wc,fc]=NR(W,b);
+      add(i+','+W, (i+1)+','+Wc, i,W, i+1,Wc, b, fc);
+    } else {
+      const e=oppEdge(W,b), F=otherFace(e,W);
+      const [Wc,fc]=NR(W,e), Gg=otherFace(fc,Wc);
+      add(i+','+F, (i+1)+','+Gg, i,F, i+1,Gg, e, fc);
+    }
+  }
+  const mid=Math.floor((n-1)/2);
+  let root=nodes.findIndex(k=>k.startsWith(mid+',')); if(root<0) root=0;
+  const par=new Array(nodes.length).fill(-1), pe=new Array(nodes.length).fill(null);
+  const ord=[root], seen=new Set([root]);
+  for(let qi=0;qi<ord.length;qi++){ const u=ord[qi];
+    for(const e of adj[u]) if(!seen.has(e.to)){ seen.add(e.to); par[e.to]=u; pe[e.to]=e; ord.push(e.to);} }
+  const hinge=new Array(nodes.length).fill(null);
+  for(const u of ord){ if(par[u]<0) continue;
+    const e=pe[u], pf=poly[par[u]], [v0,v1]=EV[e.vp-1];
+    const k0=FV[pf.f-1].indexOf(v0), k1=FV[pf.f-1].indexOf(v1);
+    if(k0<0||k1<0){ hinge[u]={a:pf.pts[0],d:[1,0,0],beta:0}; continue; }
+    hinge[u]={a:pf.pts[k0], d:nrm3(sb3(pf.pts[k1],pf.pts[k0])), beta:e.beta};
+  }
+  return {nodes,poly,ord,par,hinge};
+}
+/* The fold tree works in the plane of the net (z = 0).  G is the rigid motion that
+   puts the fully folded net back onto the polycube where it was built, so that the
+   folding starts from, and returns to, the polycube as the user sees it.          */
+function alignToPolycube(){
+  const {poly,ord}=FOLD, r=ord[0], pf=poly[r], c=centres[pf.i];
+  const q=FV[pf.f-1].map(v=>[c[0]+V[v][0],c[1]+V[v][1],c[2]+V[v][2]]);
+  const frame=pts=>{ const e1=nrm3(sb3(pts[1],pts[0])), e2=nrm3(sb3(pts[3],pts[0]));
+    return [e1,e2,cx3(e1,e2)]; };
+  const P=frame(pf.pts), Q=frame(q);            // R maps P[k] to Q[k]
+  const R=[0,1,2].map(a=>[0,1,2].map(b=>Q[0][a]*P[0][b]+Q[1][a]*P[1][b]+Q[2][a]*P[2][b]));
+  const t=sb3(q[0], mv(R,pf.pts[0]));
+  return {R,t};
+}
+function foldedFaces(s){
+  if(!FOLD) return null;
+  const {poly,ord,par,hinge}=FOLD, T=new Array(poly.length);
+  for(const u of ord){
+    if(par[u]<0){ T[u]={R:ID3,t:[0,0,0]}; continue; }
+    const h=hinge[u], Tp=T[par[u]], R=rod(h.d, s*h.beta);
+    const t=[h.a[0]-(R[0][0]*h.a[0]+R[0][1]*h.a[1]+R[0][2]*h.a[2]),
+             h.a[1]-(R[1][0]*h.a[0]+R[1][1]*h.a[1]+R[1][2]*h.a[2]),
+             h.a[2]-(R[2][0]*h.a[0]+R[2][1]*h.a[1]+R[2][2]*h.a[2])];
+    T[u]={R:mm(Tp.R,R), t:[Tp.R[0][0]*t[0]+Tp.R[0][1]*t[1]+Tp.R[0][2]*t[2]+Tp.t[0],
+                           Tp.R[1][0]*t[0]+Tp.R[1][1]*t[1]+Tp.R[1][2]*t[2]+Tp.t[1],
+                           Tp.R[2][0]*t[0]+Tp.R[2][1]*t[1]+Tp.R[2][2]*t[2]+Tp.t[2]]};
+  }
+  const G=FOLD.G||{R:ID3,t:[0,0,0]};
+  return poly.map((p,u)=>{
+    return {i:p.i,f:p.f,
+      pts:p.pts.map(q=>{const r=mv(T[u].R,q), w=[r[0]+T[u].t[0],r[1]+T[u].t[1],r[2]+T[u].t[2]];
+                         const g=mv(G.R,w); return [g[0]+G.t[0],g[1]+G.t[1],g[2]+G.t[2]];}),
+      nrm:mv(G.R,mv(T[u].R,[0,0,1]))}; });
+}
+</script>
+<script>
+/* ================================================================= palette */
+const PAL=['#e2b23a','#5ec8d8','#c98bd6','#7fd08a','#e08a6b','#7f9ce0','#d6c15e','#6fd0c0',
+           '#d67f9c','#9cd67f','#b08be0','#e0b07f','#7fe0d0','#c0c060'];
+const hex2rgb=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+const rgb2css=c=>'rgb('+c.map(x=>Math.max(0,Math.min(255,Math.round(x)))).join(',')+')';
+const mix=(a,b,t)=>a.map((x,k)=>x*(1-t)+b[k]*t);
+const WHITE=[255,255,255], RED=[210,31,60];
+const voxCss=i=>PAL[i%PAL.length];
+function faceFill(i,isWall){
+  let c=mix(hex2rgb(PAL[i%PAL.length]),WHITE,0.5);
+  if(isWall) c=mix(c,RED,0.45);
+  return c;
+}
+/* ================================================================= state */
+let centres=[[0,0,0]], walls=[], built=null, phase=0, anim=0, animTimer=null;
+let autoBuild=false;   // set by the first press on Build: afterwards every change rebuilds
+function tryAppend(W){
+  const c=centres[centres.length-1];
+  const nc=[c[0]+FC[W-1][0], c[1]+FC[W-1][1], c[2]+FC[W-1][2]];
+  if(centres.some(x=>x[0]===nc[0]&&x[1]===nc[1]&&x[2]===nc[2])) return;
+  centres.push(nc); walls.push(W); invalidate();
+}
+function invalidate(){
+  clearInterval(animTimer);                    // a running wall removal belongs to the old build
+  const wasRemoved = phase===1;
+  built=null; phase=0; anim=0; FOLD=null;
+  document.getElementById('remove').disabled=true;
+  document.getElementById('unfwrap').style.display='none';
+  render3d(); drawStrip(); status();
+  if(autoBuild && walls.length) doBuild(true, wasRemoved);
+}
+
+/* ================================================================= 3D view */
+const cv=document.getElementById('c3d'), ctx=cv.getContext('2d');
+let yaw=0.72, pitch=0.42, zoomMul=1, visFaces=[], target=[0,0,0], fitR=3;
+function camera(){
+  const dist=Math.max(3, fitR*2.5*zoomMul);
+  const C=[target[0]+dist*Math.cos(pitch)*Math.sin(yaw), target[1]+dist*Math.sin(pitch),
+           target[2]+dist*Math.cos(pitch)*Math.cos(yaw)];
+  const f=nrm3(sb3(target,C));
+  let r=nrm3(cx3(f,[0,1,0])); if(!isFinite(r[0])) r=[1,0,0];
+  return {C,f,r,u:cx3(r,f)};
+}
+function project(P,cam,w,h){
+  const d=sb3(P,cam.C), z=dt3(d,cam.f); if(z<=0.03) return null;
+  const foc=Math.min(w,h)*1.1;
+  return [w/2+dt3(d,cam.r)*foc/z, h/2-dt3(d,cam.u)*foc/z, z];
+}
+const LIGHT=nrm3([0.42,0.82,0.55]);
+const foldedView=()=>!!(built && !built.err && FOLD && sFold<1);
+function currentSurface(){
+  if(foldedView()){
+    const ff=foldedFaces(sFold), drop=built.B.drop;
+    return ff.map(x=>({...x, wall: phase===0 && drop.has(x.i+','+x.f), clickable:false}));
+  }
+  const out=[], last=centres.length-1;
+  const used=new Set(); walls.forEach((W,i)=>{used.add(i+','+W); used.add((i+1)+','+ANTI(W));});
+  for(let i=0;i<centres.length;i++){ const c=centres[i];
+    for(let f=1;f<=NF;f++){
+      const nc=[c[0]+FC[f-1][0],c[1]+FC[f-1][1],c[2]+FC[f-1][2]];
+      const free = i===last && !centres.some(x=>x[0]===nc[0]&&x[1]===nc[1]&&x[2]===nc[2]);
+      out.push({i,f,nrm:nrm3(FC[f-1]), wall:used.has(i+','+f), clickable:free,
+        pts:FV[f-1].map(v=>[c[0]+V[v][0],c[1]+V[v][1],c[2]+V[v][2]])});
+    }}
+  return out;
+}
+function fit3d(){
+  const s=currentSurface(); let c=[0,0,0],m=0;
+  for(const it of s) for(const p of it.pts){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];m++;}
+  if(!m) return; target=c.map(x=>x/m); fitR=1;
+  for(const it of s) for(const p of it.pts)
+    fitR=Math.max(fitR,Math.hypot(p[0]-target[0],p[1]-target[1],p[2]-target[2]));
+}
+function draw3d(){
+  const w=cv.clientWidth||600, h=cv.clientHeight||400, dpr=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){
+    cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); }
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h);
+  const cam=camera(), surf=currentSurface(), items=[];
+  const solidView = !foldedView();
+  for(const it of surf){
+    let cen=[0,0,0]; for(const p of it.pts){cen[0]+=p[0];cen[1]+=p[1];cen[2]+=p[2];}
+    cen=cen.map(x=>x/it.pts.length);
+    const facing=dt3(it.nrm,sb3(cam.C,cen))>0;
+    if(solidView && !facing) continue;
+    const p2=it.pts.map(p=>project(p,cam,w,h)); if(p2.some(p=>!p)) continue;
+    let col=faceFill(it.i,it.wall);
+    if(it.clickable) col=mix(hex2rgb(PAL[it.i%PAL.length]),WHITE,0.1);
+    if(!facing) col=mix(col,[236,239,243],0.72);
+    const k=0.74+0.26*(0.5+0.5*Math.abs(dt3(it.nrm,LIGHT)));
+    items.push({poly:p2, col:col.map(x=>x*k), depth:project(cen,cam,w,h)[2],
+                clickable:it.clickable, wall:it.wall, f:it.f});
+  }
+  items.sort((a,b)=>b.depth-a.depth); visFaces=items;
+  for(const it of items){
+    ctx.beginPath(); it.poly.forEach((p,k)=>k?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+    ctx.closePath(); ctx.fillStyle=rgb2css(it.col); ctx.fill();
+    ctx.strokeStyle= it.clickable?'#1b4f9c':(it.wall?'#a1122b':'#39434f');
+    ctx.lineWidth= it.clickable?1.7:(it.wall?1.4:0.9); ctx.stroke();
+  }
+  drawTriad(cam,w,h);
+}
+/* x, y, z axes in the lower right corner, turning with the view (as in Fig. 1(c));
+   an axis pointing away from the viewer is drawn lighter, and first */
+function drawTriad(cam,w,h){
+  const L=28, ox=w-52, oy=h-46;
+  const axes=[[[1,0,0],'x'],[[0,1,0],'y'],[[0,0,1],'z']]
+    .map(([e,n])=>({e,n,d:dt3(e,cam.f)})).sort((a,b)=>b.d-a.d);
+  ctx.save();
+  ctx.lineWidth=1.4; ctx.lineCap='round';
+  ctx.font='italic 13px Georgia,"Times New Roman",serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(const a of axes){
+    const dx=dt3(a.e,cam.r)*L, dy=-dt3(a.e,cam.u)*L, n=Math.hypot(dx,dy);
+    const col=a.d>0.05?'#9aa4b0':'#3a4553';
+    ctx.strokeStyle=col; ctx.fillStyle=col;
+    ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ox+dx,oy+dy); ctx.stroke();
+    if(n>4){ const ux=dx/n, uy=dy/n, hx=ox+dx, hy=oy+dy;
+      ctx.beginPath(); ctx.moveTo(hx+2*ux,hy+2*uy);
+      ctx.lineTo(hx-5*ux+3.2*uy, hy-5*uy-3.2*ux); ctx.lineTo(hx-5*ux-3.2*uy, hy-5*uy+3.2*ux);
+      ctx.closePath(); ctx.fill(); }
+    const k=n>4?(n+11)/n:0;
+    ctx.fillText(a.n, ox+(n>4?dx*k:9), oy+(n>4?dy*k:-9));
+  }
+  ctx.beginPath(); ctx.arc(ox,oy,1.8,0,2*Math.PI); ctx.fillStyle='#3a4553'; ctx.fill();
+  ctx.restore();
+}
+function render3d(){ fit3d(); draw3d(); }
+let drag=null;
+cv.addEventListener('mousedown',e=>{drag={x:e.clientX,y:e.clientY,moved:0};});
+window.addEventListener('mousemove',e=>{ if(!drag) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY;
+  drag.moved+=Math.abs(dx)+Math.abs(dy);
+  yaw-=dx*0.008; pitch=Math.max(-1.45,Math.min(1.45,pitch+dy*0.008)); draw3d(); });
+window.addEventListener('mouseup',e=>{ if(drag&&drag.moved<4) pick(e); drag=null; });
+cv.addEventListener('wheel',e=>{ e.preventDefault();
+  zoomMul=Math.max(0.25,Math.min(6,zoomMul*(1+Math.sign(e.deltaY)*0.1))); draw3d(); },
+  {passive:false});
+function inPoly(pt,poly){ let ins=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const a=poly[i],b=poly[j];
+    if((a[1]>pt[1])!==(b[1]>pt[1]) && pt[0]<(b[0]-a[0])*(pt[1]-a[1])/(b[1]-a[1])+a[0]) ins=!ins; }
+  return ins; }
+function pick(e){
+  const r=cv.getBoundingClientRect(), pt=[e.clientX-r.left,e.clientY-r.top];
+  const c=visFaces.filter(it=>it.clickable&&inPoly(pt,it.poly));
+  if(!c.length) return; c.sort((a,b)=>a.depth-b.depth); tryAppend(c[0].f);
+}
+/* ================================================================= strip SVG */
+let zoom=1;
+function drawStrip(){
+  const svg=document.getElementById('strip');
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  if(!built||built.err){ svg.setAttribute('width',10); svg.setAttribute('height',10); return; }
+  const {faces}=built.asm, {drop,shift,pieces}=built.B;
+  const fade=Math.min(1,anim/0.34);
+  let uu=Math.max(0,(anim-0.34)/0.66);
+  const t=uu<0.5?2*uu*uu:1-Math.pow(-2*uu+2,2)/2;
+  const op=(1-fade).toFixed(3);
+  const items=[];
+  for(const fo of faces){
+    const dp=drop.has(fo.i+','+fo.f);
+    if(dp&&fade>0.999) continue;
+    items.push({i:fo.i,f:fo.f,dp,pts:fo.pts.map(p=>[p[0]-shift[fo.i]*t,p[1]])});
+  }
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  for(const it of items) for(const p of it.pts){
+    if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0]; if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1]; }
+  y1+=1.3;
+  const sc=34*zoom, pad=14;
+  svg.setAttribute('width',Math.max(10,(x1-x0)*sc+2*pad));
+  svg.setAttribute('height',Math.max(10,(y1-y0)*sc+2*pad));
+  const T=p=>[(p[0]-x0)*sc+pad,(y1-p[1])*sc+pad];
+  const el=(n,at)=>{const e=document.createElementNS('http://www.w3.org/2000/svg',n);
+    for(const k in at)e.setAttribute(k,at[k]); return e;};
+  const nums=document.getElementById('nums').classList.contains('on');
+  for(const it of items){
+    const d=it.pts.map((p,k)=>(k?'L':'M')+T(p).map(x=>x.toFixed(2)).join(' ')).join('')+'Z';
+    svg.appendChild(el('path',{d,fill:rgb2css(faceFill(it.i,it.dp)),stroke:'none',
+      opacity: it.dp?op:1}));
+  }
+  for(const it of items){
+    const tree=new Set(pieces[it.i].tree), vs=FV[it.f-1];
+    for(let k=0;k<4;k++){
+      const j=FE[it.f-1][k], P=T(it.pts[k]), Q=T(it.pts[(k+1)%4]);
+      const inT=tree.has(j) && pieces[it.i].keep.includes(otherFace(j,it.f));
+      svg.appendChild(el('line',{x1:P[0].toFixed(2),y1:P[1].toFixed(2),
+        x2:Q[0].toFixed(2),y2:Q[1].toFixed(2),
+        stroke: it.dp?'#a1122b':(inT?'#8494a8':'#141c26'),
+        'stroke-width': it.dp?1.5:(inT?0.8:2.0), opacity: it.dp?op:1,
+        'stroke-linecap':'round'}));
+    }
+    if(nums){ let cx=0,cy=0; for(const p of it.pts){const q=T(p);cx+=q[0];cy+=q[1];}
+      const tx=el('text',{x:(cx/4).toFixed(1),y:(cy/4+3.5).toFixed(1),'text-anchor':'middle',
+        'font-size':10,'font-family':'ui-monospace,monospace',fill:'#48525e',
+        opacity:it.dp?op:1}); tx.textContent=it.f; svg.appendChild(tx); }
+  }
+  // rails
+  const railSeg=(i,F,e,col,wd)=>{
+    const fo=faces.find(x=>x.i===i&&x.f===F); if(!fo) return;
+    const idx=FV[F-1], [v0,v1]=EV[e-1];
+    const P=T([fo.pts[idx.indexOf(v0)][0]-shift[i]*t, fo.pts[idx.indexOf(v0)][1]]);
+    const Q=T([fo.pts[idx.indexOf(v1)][0]-shift[i]*t, fo.pts[idx.indexOf(v1)][1]]);
+    svg.appendChild(el('line',{x1:P[0].toFixed(2),y1:P[1].toFixed(2),x2:Q[0].toFixed(2),
+      y2:Q[1].toFixed(2),stroke:col,'stroke-width':wd,'stroke-linecap':'round',opacity:op}));
+  };
+  for(let i=0;i<pieces.length;i++){
+    const p=pieces[i];
+    if(p.out){ const [W,b]=p.out;
+      railSeg(i, mode==="direct"?otherFace(b,W):W, b, '#b01818', 5.4); }
+  }
+  for(let i=0;i<pieces.length;i++){
+    const p=pieces[i];
+    if(i>0 || (mode==="direct"&&false)) railSeg(i, p.root, p.rail, '#123a9c', 2.4);
+  }
+  // labels
+  for(let i=0;i<pieces.length;i++){
+    const mine=items.filter(x=>x.i===i); if(!mine.length) continue;
+    let lo=1e9,hi=-1e9,top=-1e9;
+    for(const it of mine) for(const p of it.pts){
+      if(p[0]<lo)lo=p[0]; if(p[0]>hi)hi=p[0]; if(p[1]>top)top=p[1]; }
+    const P=T([(lo+hi)/2, top+0.45]);
+    const g=el('text',{x:P[0].toFixed(1),y:P[1].toFixed(1),'text-anchor':'middle',
+      'font-size':12.5,'font-family':'ui-monospace,monospace','font-weight':600,
+      fill:voxCss(i)});
+    g.textContent='C'+(i+1)+' · '+pieces[i].n; svg.appendChild(g);
+  }
+}
+/* ================================================================= actions */
+const MODES={solid:{t:'SOLID sequence — edge-perfect nets',
+   d:'6 faces per cube, nothing removed. One factory-net, five versions v2, v4, v6, v8, v10 (Fig. 1), no look-ahead.'},
+  direct:{t:'CLASSICAL, built directly — edge-perfect reduced pieces',
+   d:'Interior cubes carry 4 faces, the two ends 5. Three tetromino cut-outs (I, T, Z) plus one '
+     +'pentomino (Y), what remains of Q1-Q6 (Fig. 2) once the walls are deleted; 4n+2 faces.'},
+  faceperfect:{t:'CLASSICAL, via removal — face-perfect nets',
+   d:'Full 6-face nets whose two rail faces stand alone in their columns; six cut-outs Q1-Q6 (Fig. 2); press ② to delete '
+     +'the wall copies and slide by 2.'}};
+function status(){
+  document.getElementById('seqline').textContent =
+    centres.length+' cube'+(centres.length>1?'s':'')+
+    (walls.length?'  ·  walls '+walls.map(w=>'F'+w).join(' '):'');
+  document.getElementById('hud-tl').innerHTML =
+    centres.map((c,i)=>'<span style="color:'+voxCss(i)+'">C'+(i+1)+'</span> ('+c.join(', ')+')')
+      .join('<br>');
+  document.getElementById('modedesc').textContent=MODES[mode].d;
+  const cnt=document.getElementById('count'); const n=centres.length;
+  if(!built) cnt.textContent='';
+  else if(built.err) cnt.innerHTML='<span class="err">'+built.err+'</span>';
+  else if(mode==='solid') cnt.textContent=(6*n)+' faces  ·  solid strip';
+  else if(mode==='direct') cnt.textContent=(4*n+2)+' faces  =  4n+2  ·  boundary surface';
+  else cnt.textContent = phase===0
+      ? (6*n)+' faces  ·  '+(n-1)+' wall pair'+((n-1)>1?'s':'')+' to remove'
+      : (6*n-2*(n-1))+' faces  ·  boundary surface';
+  let leg='';
+  for(let i=0;i<centres.length;i++)
+    leg+='<span class="sw" style="background:'+rgb2css(faceFill(i,false))+';border-color:'
+       +voxCss(i)+'"></span><span style="color:'+voxCss(i)
+       +';font-family:ui-monospace,monospace">C'+(i+1)+'</span><span style="margin-right:8px">'
+       +'</span>';
+  if(mode==='faceperfect')
+    leg+='<span class="sw" style="background:'+rgb2css(faceFill(0,true))
+       +';border-color:#a1122b;margin-left:8px"></span>wall copies';
+  leg+='<span style="margin-left:12px;color:#123a9c">— entry</span>'
+     + '<span style="margin-left:7px;color:#b01818">— exit</span>';
+  document.getElementById('legend').innerHTML=leg;
+  for(const m of ['solid','direct','faceperfect'])
+    document.getElementById('m-'+m).classList.toggle('on', m===mode);
+}
+function refreshFold(keep){
+  FOLD=buildFoldTree();
+  if(FOLD) FOLD.G=alignToPolycube();
+  const w=document.getElementById('unfwrap');
+  if(FOLD){ w.style.display='inline-flex';
+    if(!keep){ sFold=1; document.getElementById('unf').value='0'; }
+    document.getElementById('unfval').textContent=(1-sFold).toFixed(2);
+  } else w.style.display='none';
+  render3d();
+}
+/* auto: rebuilt after a change (keeps the unfolding slider where it was);
+   removed: the walls had been removed before the change, so remove them again. */
+function doBuild(auto, removed){
+  if(!auto) autoBuild=true;
+  const B=buildStrip(walls);
+  if(B.err){ built={err:B.err}; phase=0; drawStrip(); status(); render3d(); return; }
+  const asm=assemble(centres,B);
+  if(asm.err){ built={err:asm.err}; phase=0; drawStrip(); status(); render3d(); return; }
+  built={B,asm}; phase=0; anim=0;
+  if(removed && mode==='faceperfect'){ anim=1; phase=1; }
+  document.getElementById('remove').disabled = (mode!=='faceperfect' || phase===1);
+  zoom=1; drawStrip(); fit(); status(); refreshFold(!!auto);
+}
+function doRemove(){
+  if(!built||built.err||phase===1||mode!=='faceperfect') return;
+  const t0=performance.now(), dur=1200;
+  clearInterval(animTimer);
+  animTimer=setInterval(()=>{
+    const u=Math.min(1,(performance.now()-t0)/dur); anim=u; drawStrip();
+    if(u>=1){ clearInterval(animTimer); anim=1; phase=1;
+      document.getElementById('remove').disabled=true;
+      drawStrip(); fit(); status(); refreshFold(true); }
+  },16);
+}
+function fit(){
+  const wr=document.getElementById('stripwrap'), svg=document.getElementById('strip');
+  const w=+svg.getAttribute('width'), h=+svg.getAttribute('height');
+  if(!w||!h) return;
+  zoom=Math.max(0.12,Math.min(3, zoom*Math.min(wr.clientWidth/w, wr.clientHeight/h)*0.97));
+  drawStrip();
+}
+for(const m of ['solid','direct','faceperfect'])
+  document.getElementById('m-'+m).onclick=()=>{ mode=m; invalidate(); };
+document.getElementById('build').onclick=()=>doBuild(false,false);
+document.getElementById('remove').onclick=doRemove;
+document.getElementById('undo').onclick=()=>{ if(centres.length>1){centres.pop();walls.pop();invalidate();} };
+document.getElementById('reset').onclick=()=>{ centres=[[0,0,0]]; walls=[]; invalidate(); };
+document.getElementById('rand').onclick=()=>{
+  centres=[[0,0,0]]; walls=[];
+  const n=3+Math.floor(Math.random()*4);
+  while(centres.length<n){
+    const c=centres[centres.length-1], o=[];
+    for(let f=1;f<=NF;f++){ const nc=[c[0]+FC[f-1][0],c[1]+FC[f-1][1],c[2]+FC[f-1][2]];
+      if(!centres.some(x=>x[0]===nc[0]&&x[1]===nc[1]&&x[2]===nc[2])) o.push(f); }
+    if(!o.length) break;
+    const W=o[Math.floor(Math.random()*o.length)];
+    walls.push(W); centres.push([c[0]+FC[W-1][0],c[1]+FC[W-1][1],c[2]+FC[W-1][2]]);
+  }
+  invalidate();
+};
+document.getElementById('nums').onclick=e=>{ e.target.classList.toggle('on'); drawStrip(); };
+document.getElementById('zin').onclick=()=>{zoom*=1.22;drawStrip();};
+document.getElementById('zout').onclick=()=>{zoom/=1.22;drawStrip();};
+document.getElementById('zfit').onclick=fit;
+document.getElementById('dl').onclick=()=>{
+  const svg=document.getElementById('strip'); if(!svg.getAttribute('width')) return;
+  const c=svg.cloneNode(true); c.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  const bg=document.createElementNS('http://www.w3.org/2000/svg','rect');
+  bg.setAttribute('width','100%'); bg.setAttribute('height','100%'); bg.setAttribute('fill','#fff');
+  c.insertBefore(bg,c.firstChild);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(c)],
+    {type:'image/svg+xml'}));
+  a.download='cube_'+mode+(phase?'_reduced':'')+'_'+centres.length+'cubes.svg'; a.click();
+  URL.revokeObjectURL(a.href);
+};
+const unf=document.getElementById('unf');
+unf.addEventListener('input',()=>{ sFold=1-parseFloat(unf.value);
+  document.getElementById('unfval').textContent=(1-sFold).toFixed(2); render3d(); });
+window.addEventListener('resize',()=>draw3d());
+invalidate();
+</script>
+</body>
+</html>
