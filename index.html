@@ -65,8 +65,7 @@
     <input type="range" id="unf" min="0" max="1" step="0.004" value="0" style="width:150px">
     <span id="unfval" style="font-size:12px;color:#8b97a6;font-family:ui-monospace,monospace;
       min-width:2.4em;display:inline-block">0.00</span></span>
-  <button id="build" class="go">&#9312; Build</button>
-  <button id="remove" class="cut" disabled>&#9313; Remove walls</button>
+  <button id="remove" class="cut" disabled>Remove walls</button>
 </header>
 <div id="modebar">
   <button class="mode on" id="m-solid">solid &middot; edge-perfect</button>
@@ -173,7 +172,13 @@ function unfoldSub(keep,tree,root,rail){
 let mode="solid";
 function buildStrip(walls){
   const n=walls.length+1, P=[];
-  if(!walls.length) return {err:"add at least one more cube"};
+  if(!walls.length){
+    // a single cube: one six-face net, no ports (the 3-3 hexomino; Q1 in face-perfect mode)
+    const v = mode==="faceperfect" ? FP[0] : SOLID[0];
+    return {pieces:[{keep:[1,2,3,4,5,6], tree:v.t, root:v.A, rail:v.a, turn:false, out:null,
+                     n: mode==="faceperfect" ? v.n : 'hexomino'}],
+            drop:new Set(), shift:[0]};
+  }
   let rail=null;
   if(mode==="direct"){
     // first cube: 5 faces, its removed wall is walls[0]; the rail is its EXIT -> half-turn
@@ -405,7 +410,6 @@ function faceFill(i,isWall){
 }
 /* ================================================================= state */
 let centres=[[0,0,0]], walls=[], built=null, phase=0, anim=0, animTimer=null;
-let autoBuild=false;   // set by the first press on Build: afterwards every change rebuilds
 function tryAppend(W){
   const c=centres[centres.length-1];
   const nc=[c[0]+FC[W-1][0], c[1]+FC[W-1][1], c[2]+FC[W-1][2]];
@@ -419,7 +423,7 @@ function invalidate(){
   document.getElementById('remove').disabled=true;
   document.getElementById('unfwrap').style.display='none';
   render3d(); drawStrip(); status();
-  if(autoBuild && walls.length) doBuild(true, wasRemoved);
+  doBuild(wasRemoved);       // every change rebuilds the net
 }
 
 /* ================================================================= 3D view */
@@ -624,7 +628,7 @@ const MODES={solid:{t:'SOLID sequence — edge-perfect nets',
    d:'Interior cubes carry 4 faces, the two ends 5. Three tetromino cut-outs (I, T, Z) plus one '
      +'pentomino (Y), what remains of Q1-Q6 (Fig. 2) once the walls are deleted; 4n+2 faces.'},
   faceperfect:{t:'CLASSICAL, via removal — face-perfect nets',
-   d:'Full 6-face nets whose two rail faces stand alone in their columns; six cut-outs Q1-Q6 (Fig. 2); press ② to delete '
+   d:'Full 6-face nets whose two rail faces stand alone in their columns; six cut-outs Q1-Q6 (Fig. 2); press Remove walls to delete '
      +'the wall copies and slide by 2.'}};
 function status(){
   document.getElementById('seqline').textContent =
@@ -637,6 +641,7 @@ function status(){
   const cnt=document.getElementById('count'); const n=centres.length;
   if(!built) cnt.textContent='';
   else if(built.err) cnt.innerHTML='<span class="err">'+built.err+'</span>';
+  else if(n===1) cnt.textContent='6 faces  ·  one cube';
   else if(mode==='solid') cnt.textContent=(6*n)+' faces  ·  solid strip';
   else if(mode==='direct') cnt.textContent=(4*n+2)+' faces  =  4n+2  ·  boundary surface';
   else cnt.textContent = phase===0
@@ -667,18 +672,17 @@ function refreshFold(keep){
   } else w.style.display='none';
   render3d();
 }
-/* auto: rebuilt after a change (keeps the unfolding slider where it was);
+/* Called after every change; keeps the unfolding slider where it was.
    removed: the walls had been removed before the change, so remove them again. */
-function doBuild(auto, removed){
-  if(!auto) autoBuild=true;
+function doBuild(removed){
   const B=buildStrip(walls);
   if(B.err){ built={err:B.err}; phase=0; drawStrip(); status(); render3d(); return; }
   const asm=assemble(centres,B);
   if(asm.err){ built={err:asm.err}; phase=0; drawStrip(); status(); render3d(); return; }
   built={B,asm}; phase=0; anim=0;
-  if(removed && mode==='faceperfect'){ anim=1; phase=1; }
-  document.getElementById('remove').disabled = (mode!=='faceperfect' || phase===1);
-  zoom=1; drawStrip(); fit(); status(); refreshFold(!!auto);
+  if(removed && mode==='faceperfect' && walls.length){ anim=1; phase=1; }
+  document.getElementById('remove').disabled = (mode!=='faceperfect' || phase===1 || !walls.length);
+  zoom=1; drawStrip(); fit(); status(); refreshFold(true);
 }
 function doRemove(){
   if(!built||built.err||phase===1||mode!=='faceperfect') return;
@@ -700,7 +704,6 @@ function fit(){
 }
 for(const m of ['solid','direct','faceperfect'])
   document.getElementById('m-'+m).onclick=()=>{ mode=m; invalidate(); };
-document.getElementById('build').onclick=()=>doBuild(false,false);
 document.getElementById('remove').onclick=doRemove;
 document.getElementById('undo').onclick=()=>{ if(centres.length>1){centres.pop();walls.pop();invalidate();} };
 document.getElementById('reset').onclick=()=>{ centres=[[0,0,0]]; walls=[]; invalidate(); };
