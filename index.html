@@ -1,4 +1,21 @@
 <!DOCTYPE html>
+<!--
+  Polycube chains -- three unfoldings
+  Companion application to the paper "Introducing Factory-Nets"
+  by Eric Andres and Gaelle Largeteau-Skapin,
+  University of Poitiers, Laboratory XLIM, ASALI team, UMR CNRS 7252.
+
+  Repository : https://github.com/ericandres22/Cubic-Chain-Factory-nets
+  Online     : https://ericandres22.github.io/Cubic-Chain-Factory-nets/
+
+  Copyright (c) 2026 Eric Andres and Gaelle Largeteau-Skapin
+  Released under the MIT License (see the LICENSE file of the repository):
+  permission is granted, free of charge, to use, copy, modify, merge, publish,
+  distribute, sublicense and/or sell copies of this software, provided that the
+  above copyright notice and this permission notice are included in all copies
+  or substantial portions of the software. The software is provided "as is",
+  without warranty of any kind.
+-->
 <html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Polycube chains — three unfoldings</title>
@@ -7,45 +24,55 @@
         --muted:#8b97a6;--faint:#5a6673;--accent:#e2b23a;
         --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
   *{box-sizing:border-box} html,body{height:100%;margin:0}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15.5px;
        display:flex;flex-direction:column;overflow:hidden}
   header{display:flex;align-items:center;gap:9px;padding:8px 14px;border-bottom:1px solid var(--edge);
          background:var(--panel);flex-wrap:wrap}
-  header h1{margin:0;font-size:12.5px;font-weight:650;letter-spacing:.13em;text-transform:uppercase}
-  .sub{color:var(--muted);font-size:12px;font-family:ui-monospace,monospace}
+  header h1{margin:0;font-size:14px;font-weight:650;letter-spacing:.13em;text-transform:uppercase}
+  .sub{color:var(--muted);font-size:13.5px;font-family:ui-monospace,monospace}
   .spacer{flex:1}
   #paper{padding:7px 14px 6px;background:#12171e;border-bottom:1px solid var(--edge);
-         font-size:12.5px;color:var(--ink);line-height:1.45}
+         font-size:14px;color:var(--ink);line-height:1.45}
   #paper cite{font-style:italic;font-weight:600;color:var(--accent)}
-  #paper .affil{color:var(--muted);font-size:11.5px}
-  button{font-family:var(--sans);font-size:13px;color:var(--ink);background:var(--panel2);
+  #paper .affil{color:var(--muted);font-size:13px}
+  button{font-family:var(--sans);font-size:14.5px;color:var(--ink);background:var(--panel2);
          border:1px solid var(--edge);border-radius:7px;padding:6px 11px;cursor:pointer;
          transition:.12s;white-space:nowrap}
   button:hover:not(:disabled){border-color:var(--faint)}
   button.go{background:#3f9a5e1e;border-color:#3f9a5e66;color:#7fe0a6}
   button.cut{background:#d21f3c1e;border-color:#d21f3c66;color:#ff9aa9}
   button.toggle.on{background:#e2b23a1c;border-color:#e2b23a66;color:var(--accent)}
-  button.mode{font-size:12.5px}
+  button.mode{font-size:14px}
   button.mode.on{background:#5ec8d81c;border-color:#5ec8d866;color:#8fdcea}
   button:disabled{opacity:.35;cursor:not-allowed}
   main{flex:1;display:flex;flex-direction:column;min-height:0}
   #top{flex:1 1 48%;position:relative;min-height:0;background:#fff}
   #c3d{width:100%;height:100%;display:block;cursor:crosshair}
-  .hud{position:absolute;font-family:ui-monospace,monospace;font-size:11.5px;color:#5a6673;
+  .hud{position:absolute;font-family:ui-monospace,monospace;font-size:13px;color:#5a6673;
        pointer-events:none}
   #hud-tl{left:12px;top:10px;line-height:1.5}
   #hint{left:12px;bottom:10px}
-  #modebar{padding:6px 14px;background:#12171e;border-bottom:1px solid var(--edge);
-           color:var(--muted);font-size:12.5px}
+  #modebar{padding:7px 14px;background:#12171e;border-bottom:1px solid var(--edge);
+           color:var(--muted);font-size:14px}
+  /* controls between the 3D view and the net */
+  #controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 14px;
+            background:var(--panel);border-top:1px solid var(--edge);border-bottom:1px solid var(--edge)}
+  #controls .grp{display:flex;align-items:center;gap:7px}
+  #controls .sep{width:1px;align-self:stretch;background:var(--edge);margin:0 4px}
+  #unfwrap{display:flex;align-items:center;gap:9px;padding:4px 12px;border-radius:8px;
+           background:#e2b23a14;border:1px solid #e2b23a55}
+  #unfwrap label{font-weight:650;color:var(--accent);letter-spacing:.04em}
+  #unf{width:240px}
+  #unfval{font-family:ui-monospace,monospace;color:var(--muted);min-width:2.6em;display:inline-block}
   #bottom{flex:1 1 52%;min-height:0;border-top:1px solid var(--edge);background:#fff;
           display:flex;flex-direction:column}
   #bottom .bar{display:flex;align-items:center;gap:10px;padding:6px 14px;
-               border-bottom:1px solid #dfe3e8;background:#f6f7f9;color:#3d4753;font-size:12px;
+               border-bottom:1px solid #dfe3e8;background:#f6f7f9;color:#3d4753;font-size:13.5px;
                white-space:nowrap;overflow:hidden}
-  #bottom .bar button{color:#3d4753;background:#fff;border:1px solid #d5dae0;padding:4px 9px;
-                      font-size:12px}
+  #bottom .bar button{color:#3d4753;background:#fff;border:1px solid #d5dae0;padding:4px 10px;
+                      font-size:13.5px}
   #stripwrap{flex:1;overflow:auto;min-height:0} #strip{display:block}
-  .sw{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;
+  .sw{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-1px;
       margin-right:4px;border:1px solid #0002}
   .err{color:#c0392b}
   input[type=range]{accent-color:#e2b23a}
@@ -56,16 +83,6 @@
 <header>
   <h1>Polycube chains</h1>
   <span class="sub" id="seqline"></span>
-  <span class="spacer"></span>
-  <button id="nums" class="toggle">face #</button>
-  <button id="undo">&#9666; Undo</button><button id="reset">Reset</button>
-  <button id="rand">Random</button>
-  <span id="unfwrap" style="display:none;align-items:center;gap:7px;margin-left:6px">
-    <label for="unf" style="font-size:12px;color:#8b97a6">unfold</label>
-    <input type="range" id="unf" min="0" max="1" step="0.004" value="0" style="width:150px">
-    <span id="unfval" style="font-size:12px;color:#8b97a6;font-family:ui-monospace,monospace;
-      min-width:2.4em;display:inline-block">0.00</span></span>
-  <button id="remove" class="cut" disabled>Remove walls</button>
 </header>
 <div id="modebar">
   <button class="mode on" id="m-solid">solid &middot; edge-perfect</button>
@@ -77,6 +94,17 @@
   <div id="top"><canvas id="c3d"></canvas>
     <div class="hud" id="hud-tl"></div>
     <div class="hud" id="hint">drag to orbit &middot; scroll to zoom &middot; click a highlighted face of the last cube to extend</div>
+  </div>
+  <div id="controls">
+    <div class="grp"><button id="undo">&#9666; Undo</button><button id="reset">Reset</button>
+      <button id="rand">Random</button></div>
+    <span class="sep"></span>
+    <div id="unfwrap"><label for="unf">Unfold</label>
+      <input type="range" id="unf" min="0" max="1" step="0.004" value="0">
+      <span id="unfval">0.00</span></div>
+    <button id="remove" class="cut" disabled>Remove walls</button>
+    <span class="spacer"></span>
+    <button id="nums" class="toggle">face #</button>
   </div>
   <div id="bottom">
     <div class="bar"><span id="legend"></span><span class="spacer"></span>
@@ -421,7 +449,6 @@ function invalidate(){
   const wasRemoved = phase===1;
   built=null; phase=0; anim=0; FOLD=null;
   document.getElementById('remove').disabled=true;
-  document.getElementById('unfwrap').style.display='none';
   render3d(); drawStrip(); status();
   doBuild(wasRemoved);       // every change rebuilds the net
 }
@@ -562,10 +589,10 @@ function drawStrip(){
   for(const it of items) for(const p of it.pts){
     if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0]; if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1]; }
   y1+=1.3;
-  const sc=34*zoom, pad=14;
-  svg.setAttribute('width',Math.max(10,(x1-x0)*sc+2*pad));
+  const sc=34*zoom, pad=14, padX=40;      // padX leaves room for the labels of the end pieces
+  svg.setAttribute('width',Math.max(10,(x1-x0)*sc+2*padX));
   svg.setAttribute('height',Math.max(10,(y1-y0)*sc+2*pad));
-  const T=p=>[(p[0]-x0)*sc+pad,(y1-p[1])*sc+pad];
+  const T=p=>[(p[0]-x0)*sc+padX,(y1-p[1])*sc+pad];
   const el=(n,at)=>{const e=document.createElementNS('http://www.w3.org/2000/svg',n);
     for(const k in at)e.setAttribute(k,at[k]); return e;};
   const nums=document.getElementById('nums').classList.contains('on');
@@ -587,7 +614,7 @@ function drawStrip(){
     }
     if(nums){ let cx=0,cy=0; for(const p of it.pts){const q=T(p);cx+=q[0];cy+=q[1];}
       const tx=el('text',{x:(cx/4).toFixed(1),y:(cy/4+3.5).toFixed(1),'text-anchor':'middle',
-        'font-size':10,'font-family':'ui-monospace,monospace',fill:'#48525e',
+        'font-size':11.5,'font-family':'ui-monospace,monospace',fill:'#48525e',
         opacity:it.dp?op:1}); tx.textContent=it.f; svg.appendChild(tx); }
   }
   // rails
@@ -616,7 +643,7 @@ function drawStrip(){
       if(p[0]<lo)lo=p[0]; if(p[0]>hi)hi=p[0]; if(p[1]>top)top=p[1]; }
     const P=T([(lo+hi)/2, top+0.45]);
     const g=el('text',{x:P[0].toFixed(1),y:P[1].toFixed(1),'text-anchor':'middle',
-      'font-size':12.5,'font-family':'ui-monospace,monospace','font-weight':600,
+      'font-size':14,'font-family':'ui-monospace,monospace','font-weight':600,
       fill:voxCss(i)});
     g.textContent='C'+(i+1)+' · '+pieces[i].n; svg.appendChild(g);
   }
@@ -647,17 +674,11 @@ function status(){
   else cnt.textContent = phase===0
       ? (6*n)+' faces  ·  '+(n-1)+' wall pair'+((n-1)>1?'s':'')+' to remove'
       : (6*n-2*(n-1))+' faces  ·  boundary surface';
-  let leg='';
-  for(let i=0;i<centres.length;i++)
-    leg+='<span class="sw" style="background:'+rgb2css(faceFill(i,false))+';border-color:'
-       +voxCss(i)+'"></span><span style="color:'+voxCss(i)
-       +';font-family:ui-monospace,monospace">C'+(i+1)+'</span><span style="margin-right:8px">'
-       +'</span>';
-  if(mode==='faceperfect')
+  let leg='<span style="color:#123a9c">— entry port</span>'
+     + '<span style="margin-left:10px;color:#b01818">— exit port</span>';
+  if(mode==='faceperfect' && phase===0)
     leg+='<span class="sw" style="background:'+rgb2css(faceFill(0,true))
-       +';border-color:#a1122b;margin-left:8px"></span>wall copies';
-  leg+='<span style="margin-left:12px;color:#123a9c">— entry</span>'
-     + '<span style="margin-left:7px;color:#b01818">— exit</span>';
+       +';border-color:#a1122b;margin-left:12px"></span>wall copies';
   document.getElementById('legend').innerHTML=leg;
   for(const m of ['solid','direct','faceperfect'])
     document.getElementById('m-'+m).classList.toggle('on', m===mode);
@@ -665,11 +686,12 @@ function status(){
 function refreshFold(keep){
   FOLD=buildFoldTree();
   if(FOLD) FOLD.G=alignToPolycube();
-  const w=document.getElementById('unfwrap');
-  if(FOLD){ w.style.display='inline-flex';
-    if(!keep){ sFold=1; document.getElementById('unf').value='0'; }
+  const u=document.getElementById('unf');
+  u.disabled=!FOLD;
+  if(FOLD){
+    if(!keep){ sFold=1; u.value='0'; }
     document.getElementById('unfval').textContent=(1-sFold).toFixed(2);
-  } else w.style.display='none';
+  }
   render3d();
 }
 /* Called after every change; keeps the unfolding slider where it was.
